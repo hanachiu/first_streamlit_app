@@ -1,35 +1,33 @@
-# Import python packages
-import streamlit as st
-from snowflake.snowpark.context import get_active_session
-from snowflake.snowpark.functions import col
-import pandas as pd
-
-# Write directly to the app
-st.title("Zena's Amazing Athleisure Catalog")
-st.write(
-    """Pick a sweatsuit color or style:
-    """
-)
-
-# Get the current credentials
-session = get_active_session()
-my_catlog=session.table('catalog_for_website').select(col('COLOR_OR_STYLE'))
-
-option=st.selectbox('enter',my_catlog)
-
+import streamlit
+import snowflake.connector
+import pandas
+streamlit.title('Zena\'s Amazing Athleisure Catalog')
+# connect to snowflake
+my_cnx = snowflake.connector.connect(**streamlit.secrets["snowflake"])
+my_cur = my_cnx.cursor()
+# run a snowflake query and put it all in a var called my_catalog
+my_cur.execute("select color_or_style from catalog_for_website")
+my_catalog = my_cur.fetchall()
+# put the dafta into a dataframe
+df = pandas.DataFrame(my_catalog)
+# temp write the dataframe to the page so I Can see what I am working with
+# streamlit.write(df)
+# put the first column into a list
+color_list = df[0].values.tolist()
+# print(color_list)
+# Let's put a pick list here so they can pick the color
+option = streamlit.selectbox('Pick a sweatsuit color or style:', list(color_list))
 # We'll build the image caption now, since we can
 product_caption = 'Our warm, comfortable, ' + option + ' sweatsuit!'
-
-ans=session.table('catalog_for_website').filter(col('COLOR_OR_STYLE')==option)
-#st.write(ans)
-p_df=ans.to_pandas()
-#st.write(p_df)
-#df2 = session.fetchone()
-
-
-#st.write(p_df['DIRECT_URL'].iloc[0])
-st.image(p_df['DIRECT_URL'].iloc[0],width=400,caption=product_caption)
-
-st.write('Price:',p_df['PRICE'].iloc[0])
-st.write('Sizes Available::',p_df['SIZE_LIST'].iloc[0])
-st.write(p_df['UPSELL_PRODUCT_DESC'].iloc[0])
+# use the option selected to go back and get all the info from the database
+my_cur.execute("select direct_url, price, size_list, upsell_product_desc from catalog_for_website where
+color_or_style = '" + option + "';")
+df2 = my_cur.fetchone()
+streamlit.image(
+df2[0],
+width=400,
+caption= product_caption
+)
+streamlit.write('Price: ', df2[1])
+streamlit.write('Sizes Available: ',df2[2])
+streamlit.write(df2[3])
